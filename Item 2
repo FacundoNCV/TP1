@@ -1,0 +1,87 @@
+%% Obtencion de R, L y C (Item 2 Ejercicio 1)
+%
+tabla=xlsread("Curvas_Medidas_RLC_2024.xls");
+tiempos=tabla(:,1);
+v_cap=tabla(:,3);
+%plot(tiempos,v_cap);
+vi=tabla(:,4);
+ret=0.01;
+t=0.0109-ret; %tiempo x-dist. de chen
+amp_esc=12; %amplitud del escalon 12V
+il=tabla(:,2); %plot(tiempos,il); %para il(0.0109)=0.036A
+[~, indice] =min(abs(t+ret-tiempos));%Busco en ret+t
+v1=v_cap(indice);
+t1=tiempos(indice)-ret; %t1
+
+[~, indice] =min(abs(2*t+ret-tiempos));
+v2=v_cap(indice);
+t2=tiempos(indice)-ret; %t2
+
+[~, indice] =min(abs(3*t+ret-tiempos));
+v3=v_cap(indice);
+t3=tiempos(indice)-ret; %t3
+
+
+%verificacion de puntos
+% plot(tabla(:,1),tabla(:,3))
+% hold on
+% plot(t1+ret,v1,'o')
+% plot(t2+ret,v2,'o')
+% plot(t3+ret,v3,'o')
+
+%quitar comentarios para probar si se estan obteniendo correctamente
+
+%Ganancia en ss
+%k=y(infinito)/amp_esc
+k=12/amp_esc;
+
+% Metodo de chen
+
+%CA
+k1= (1/amp_esc)*v1/k-1;
+k2= (1/amp_esc)*v2/k-1;
+k3= (1/amp_esc)*v3/k-1;
+b= 4*k1^3*k3-3*k1^2*k2^2-4*k2^3+k3^2+6*k1*k2*k3;
+alfa1= (k1*k2+k3-sqrt(b))/(2*(k1^2+k2));
+alfa2= (k1*k2+k3+sqrt(b))/(2*(k1^2+k2));
+beta= (2*k1^3+3*k1*k2+k3-sqrt(b))/(sqrt(b));
+
+%Obtencion de T1,T2 y T3
+T1= (-t/log(alfa1));
+T2= (-t/log(alfa2));
+T1= real(T1);T2=real(T2);
+T3= real(beta*(T1-T2)+T1);
+
+%Funcion de transferencia
+sys=tf(k,conv([T1 1],[T2 1]));
+t_s=tiempos;
+u_Va=vi;
+[y1,t1,ent]=lsim(sys, u_Va, t_s, [0,0]);
+
+plot(tiempos,v_cap,'b')
+hold on
+plot(t1,y1,'r--')
+plot(t+ret,v1,'o')
+plot(t2+ret,v2,'o')
+plot(t3+ret,v3,'o')
+legend('Entrada', 'Aproximacion por metodo de Chen');
+disp('La funcion de transferencia de Chen es:');
+sys
+
+%Calculo de R,L,C
+[~, idx_t1] = min(abs(tiempos - (t+ret)));
+
+v_anterior= v_cap(idx_t1-1);
+v_siguiente= v_cap(idx_t1+1);
+
+t_anterior= tiempos(idx_t1-1);
+t_siguiente= tiempos(idx_t1+1);
+dt= t_siguiente - t_anterior;
+dv= v_siguiente - v_anterior;
+dvdt = dv/dt;
+i_t1 = il(idx_t1);%Corriente planteada al incio
+C_aprox = i_t1/dvdt;
+disp('La capacitancia aproximada es %d');
+C_aprox
+R=(T1+T2)/C_aprox;
+L=(T1*T2)/C_aprox;
