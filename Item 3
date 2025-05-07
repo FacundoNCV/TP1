@@ -1,0 +1,20 @@
+
+%% Calculo de la corriente estimada por el metodo de Chen (Item 3 Ejercicio 1)
+% Al ser una extension el item 2 se necesitan ambos codigos para que este funcione
+%Pegar al final de item 2 en un solo script de Matlab.
+
+%t_e= log(0.95)/(1.2*max(roots(conv([T1 1],[T2 1]))));
+%La linea anterior es el tiempo de Euler, se opto por usar el mismo periodo
+%que tienen las muestras dadas en el archivo xls.
+dt_nuevo= tiempos(2)-tiempos(1);
+dvdt_chen = diff(y1) / dt_nuevo;
+dvdt_chen(end+1) = dvdt_chen(end);
+% Corriente estimada por el metodo de Chen
+i_chen = C_aprox*dvdt_chen;
+% Graficamos para comparar con la corriente de las talbas
+plot(tiempos, il, 'b', tiempos, i_chen, 'r--');
+legend('Corriente medida', 'Corriente estimada (Chen)');
+xlabel('Tiempo [s]');
+ylabel('Corriente [A]');
+title('Comparación entre corriente medida y estimada por metodo de Chen');
+
