@@ -1,0 +1,86 @@
+%% Simulacion del RLC
+% 
+clc; close all; clear;
+%Definicion de variables y matrices
+R=47; L=1e-6; C=100e-9;
+mat_A=[-R/L -1/L;1/C 0]; mat_B=[1/L; 0]; mat_C=[R 0];
+
+%Calculo del tiempo de euler con los AV.
+av=eig(mat_A);
+te=1/(3*max(abs(av)));
+
+%Se muestran por CW
+disp('Autovalores de A:');
+disp(av);
+
+%Parametros de sim
+t_i=-0.05e-3;
+tf=4e-3;
+p=2e-3;
+N=round((tf-t_i)/te);
+V0=12;
+
+%Inicializacion de variables
+x=[0;0];
+t_act=t_i;
+il=zeros(N,1);
+vc=zeros(N,1);
+ut=zeros(N,1);
+vr=zeros(N,1);
+t=zeros(N,1);
+
+%Ciclo de simulacion del sistema
+for k=1:N
+
+    u=V0*sign(sin(2*pi*t_act/p));
+    ut(k)=u;
+    if t_act<0
+        u=0;
+    end
+
+    xp=mat_A*x+mat_B*u;
+    y=mat_C*x;
+
+    il(k)=x(1);
+    vc(k)=x(2);
+    vr(k)=y;
+
+    x=x+xp*te;
+    t_act=t_act+te;
+    t(k)=t_act;
+
+end
+
+%Graficos
+figure;
+subplot(4, 1, 1);
+plot(t*1e6, ut, 'b', 'LineWidth', 2);
+grid on;
+xlabel('Tiempo (\mus)');
+ylabel('v_{in} (V)');
+title('Señal de Entrada (Onda Cuadrada)');
+xlim([-50, 3500]);
+
+subplot(4, 1, 2);
+plot(t*1e6, vr, 'b', 'LineWidth', 2);
+grid on;
+xlabel('Tiempo (\mus)');
+ylabel('v_{r} (V)');
+title('Señal de Salida (Tension en la resistencia)');
+xlim([-50, 3500]);
+
+subplot(4, 1, 3);
+plot(t*1e6, il, 'r', 'LineWidth', 2);
+grid on;
+xlabel('Tiempo (\mus)');
+ylabel('i_{L} (A)');
+title('Corriente del inductor');
+xlim([-50, 3500]);
+
+subplot(4, 1, 4);
+plot(t*1e6, vc, 'r', 'LineWidth', 2);
+grid on;
+xlabel('Tiempo (\mus)');
+ylabel('v_{C} (V)');
+title('Tension del capacitor');
+xlim([-50, 3500]);
