@@ -1,0 +1,56 @@
+clc; close all; clear;
+% %Definicion de variables y matrices
+L=366e-6; J=5e-9; R=55.6; Bm=0; Ki=6.49e-3; Km=6.53e-3;
+A=[(-R/L) 0 (-Km/L);0 0 1 ; (Ki/J) 0 (-Bm/J) ];
+B=[1/L 0;0 0;0 -1/J];
+C=[0 0 1];
+%Calculo del tiempo de euler con los AV.
+
+
+%Se muestran por CW
+disp('Autovalores de A:');
+av=eig(A);
+disp(av);
+
+%Parametros de sim
+t_e=10e-6;
+tf=5;
+t=0: t_e: tf;
+V0=12;
+
+%Condiciones iniciales
+x=[0;0;0];
+
+i_a=zeros(1,length(t));
+wm=zeros(1,length(t));
+u=V0*ones(1,length(t));
+T=zeros(1,length(t));
+%Ciclo de simulacion del sistema
+for k=1:length(t)
+
+    xp=A*x+B*(V0+T(k));
+
+    i_a(k)=x(1);
+    wm(k)=x(3);
+    T(k)=Ki*x(1);
+    x=x+xp*t_e;
+
+end
+ i_max=max(i_a);
+ T_max=Ki*i_max;
+
+%graficos
+
+subplot(2, 1, 1);
+plot(t, i_a, 'g', 'LineWidth', 1);
+grid on;
+xlabel('Tiempo (s)');
+ylabel('i_{L} (A)');
+title('Corriente de Armadura');
+
+subplot(2, 1, 2);
+plot(t, wm, 'r', 'LineWidth', 1);
+grid on;
+xlabel('Tiempo (s)');
+ylabel('v_{C} (V)');
+title('Velocidad angular');
