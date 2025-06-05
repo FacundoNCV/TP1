@@ -1,0 +1,196 @@
+%% Simulacion del RLC (Inciso 1, Caso de estudio 1|TP1)
+clc; close; clear;
+%Definicion de constantes y matrices
+R=47; L=1e-6; C=100e-9;
+mat_A=[-R/L -1/L;1/C 0]; mat_B=[1/L; 0]; mat_C=[R 0];
+%Para construir las matrices en el EE se escogio x1=i(t) x2=vc(t).
+
+%Calculo del tiempo de euler con los AV.
+%Se toma el polo de la dinamica mas rapida para definir el tiempo de euler
+av=eig(mat_A);
+te=log(0.95)/(7*max(av));
+
+%Se muestran por Command Window
+disp('Autovalores de A:');
+disp(av);
+
+%Parametros de sim
+t_i=-0.05e-3;
+t_f=4e-3;
+p=2e-3;
+N=round((t_f-t_i)/te);
+V0=12;
+
+%Inicializacion de variables
+x=[0;0];
+t_act=t_i;
+il=zeros(N,1);
+vc=zeros(N,1);
+ut=zeros(N,1);
+vr=zeros(N,1);
+t=zeros(N,1);
+
+%Ciclo de simulacion del sistema
+for k=1:N
+
+    %Simula la onda cuadrada +-12 a la entrada 
+    u=V0*sign(sin(2*pi*t_act/p));
+    ut(k)=u;
+    if t_act<0
+        u=0;
+    end
+
+    %Ecuaciones del espacio de estado
+    xp=mat_A*x+mat_B*u;%Ecuacion de stado
+    y=mat_C*x;%Ecuacion de salida
+    
+    %Se actualizan los valores de corriente y tension
+    % para nuestro vector de estados y salida
+    % conforme avanza k
+    il(k)=x(1);
+    vc(k)=x(2);
+    vr(k)=y;
+
+    x=x+xp*te;%Integracion de Euler
+    t_act=t_act+te;%Se incrementa t. actual en una cantidad igual al t. Euler
+    t(k)=t_act;%Almacena el valor para cada indice de t
+
+end
+
+%Graficas para mostrar los resultados obtenidos de la simulacion de
+%dinamica del RLC
+figure;
+subplot(4, 1, 1);
+plot(t*1e6, ut, 'b', 'LineWidth', 2);
+grid on;
+xlabel('Tiempo (\mus)');
+ylabel('v_{in} (V)');
+title('Señal de Entrada (Onda Cuadrada)');
+xlim([-50, 3500]);
+
+subplot(4, 1, 2);
+plot(t*1e6, vr, 'b', 'LineWidth', 2);
+grid on;
+xlabel('Tiempo (\mus)');
+ylabel('v_{r} (V)');
+title('Señal de Salida (Tension en la resistencia)');
+xlim([-50, 3500]);
+
+subplot(4, 1, 3);
+plot(t*1e6, il, 'r', 'LineWidth', 2);
+grid on;
+xlabel('Tiempo (\mus)');
+ylabel('i_{L} (A)');
+title('Corriente del inductor');
+xlim([-50, 3500]);
+
+subplot(4, 1, 4);
+plot(t*1e6, vc, 'r', 'LineWidth', 2);
+grid on;
+xlabel('Tiempo (\mus)');
+ylabel('v_{C} (V)');
+title('Tension del capacitor');
+xlim([-50, 3500]);
+
+
+%% Obtencion de R, L y C (Inciso 2, Caso de estudio 1|TP1)
+
+%Se cargan los datos del excel y se almacenan en distintos vectores.
+tabla=xlsread("Curvas_Medidas_RLC_2024.xls");
+tiempos=tabla(:,1);
+il=tabla(:,2); %Para il(0.0109)=0.036A
+v_cap=tabla(:,3);
+vi=tabla(:,4);
+
+%Parametros para obtener los puntos sobre la curva de tension del capacitor
+ret=0.01;%Retardo de la dinamica en la tension del capacitor
+t=0.0109-ret; %Tiempo x-dist. de chen
+amp_esc=12; %Amplitud del escalon 12V
+
+%Se busca en el vector de tiempos el indice que corresponde
+% al tiempo de Chen elegido
+[~, indice] =min(abs(t+ret-tiempos));
+v1=v_cap(indice);%Tension de capacitor para indice
+t1=tiempos(indice)-ret;%Tiempo para imndice 
+
+[~, indice] =min(abs(2*t+ret-tiempos));
+v2=v_cap(indice);
+t2=tiempos(indice)-ret;
+
+[~, indice] =min(abs(3*t+ret-tiempos));
+v3=v_cap(indice);
+t3=tiempos(indice)-ret;
+
+%Ganancia en estado estacionario
+%k=y(infinito)/amp_esc
+k=12/amp_esc;
+
+% Metodo de chen
+
+%Calculos auxiliares (ecuaciones del metodo de Chen)
+k1= (1/amp_esc)*v1/k-1;
+k2= (1/amp_esc)*v2/k-1;
+k3= (1/amp_esc)*v3/k-1;
+b= 4*k1^3*k3-3*k1^2*k2^2-4*k2^3+k3^2+6*k1*k2*k3;
+alfa1= (k1*k2+k3-sqrt(b))/(2*(k1^2+k2));
+alfa2= (k1*k2+k3+sqrt(b))/(2*(k1^2+k2));
+beta= (2*k1^3+3*k1*k2+k3-sqrt(b))/(sqrt(b));
+
+%Obtencion de T1,T2 y T3
+T1= (-t/log(alfa1));
+T2= (-t/log(alfa2));
+T1= real(T1);T2=real(T2);
+T3= real(beta*(T1-T2)+T1);
+
+%Funcion de transferencia identificada con Chen
+den=conv([T1 1] ,[T2 1]);
+disp('La funcion de transferencia de identificada es:');
+sys= tf(k, den);
+sys
+t_s=tiempos;
+u_Va=vi;
+[y1,t1,ent]=lsim(sys, u_Va, t_s, [0,0]);
+
+%Comparacion entre la curva medida y la identificada con el metodo de Chen
+plot(tiempos,v_cap,'b')
+hold on
+plot(t1,y1,'r--')
+plot([t+ret, t2+ret, t3+ret],[v1,v2,v3], 'kx')
+legend('Entrada', 'Aproximacion por metodo de Chen', 'Puntos {v_c}');
+
+%Calculo de los parametros R, L y C
+[~, idx_t1] = min(abs(tiempos-(t+ret)));%Mismo indice para t. de Chen
+
+%Como la corriente en el capacitor esta dada por i=C*dv/dt
+%Tomamos un punto temporal antes y uno despues junto con sus
+%correspondientes tensiones para obtener C
+v_anterior= v_cap(idx_t1-1);
+v_siguiente= v_cap(idx_t1+1);
+t_anterior= tiempos(idx_t1-1);
+t_siguiente= tiempos(idx_t1+1);
+dt= t_siguiente - t_anterior;
+dv= v_siguiente - v_anterior;
+dvdt = dv/dt;
+i_t1 = il(idx_t1);%Corriente planteada al incio
+
+C_aprox = i_t1/dvdt;%Capacitancia identificada
+R=(T1+T2)/C_aprox;%Resistencia identificada
+L=(T1*T2)/C_aprox;%Inductancia identificada
+fprintf("Los parametros obtenidos son:\n C=%e R=%e L=%e",C,R,L);
+
+%% Calculo de la corriente identificada (Inciso 3, Caso de estudio 1|TP1)
+%Derivando la tension del capacitor identificada se obtiene la
+%corriente identificada
+dt_nuevo= tiempos(2)-tiempos(1);
+dvdt_chen = diff(y1) / dt_nuevo;
+dvdt_chen(end+1) = dvdt_chen(end);%Se repite el el utlimo elemento del
+%vector para poder realizar la multiplicacion matricial
+
+% Corriente estimada por el metodo de Chen
+i_chen = C_aprox*dvdt_chen;
+% Graficamos para comparar con la corriente medida
+plot(tiempos, il, 'b', tiempos, i_chen, 'r--');
+legend('Corriente medida', 'Corriente estimada (Chen)');
+xlabel('Tiempo [s]');
+ylabel('Corriente [A]');
+title('Comparación entre corriente medida y estimada por metodo de Chen');
