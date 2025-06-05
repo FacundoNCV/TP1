@@ -1,56 +1,85 @@
-clc; close all; clear;
-% %Definicion de variables y matrices
+%% Simulacion del Motor DC (Inciso 4, Caso de estudio 2|TP1)
+clc; close; clear;
+%Definicion de variables y matrices
 L=366e-6; J=5e-9; R=55.6; Bm=0; Ki=6.49e-3; Km=6.53e-3;
 A=[(-R/L) 0 (-Km/L);0 0 1 ; (Ki/J) 0 (-Bm/J) ];
 B=[1/L 0;0 0;0 -1/J];
-C=[0 0 1];
-%Calculo del tiempo de euler con los AV.
+C=[0 1 0];
+%Se uso como variables de estado x1=ia(t), x2=theta(t) y x3=w(t) obteniendo
+%asi las matrices A, B y C definidas anteriormente
 
-
-%Se muestran por CW
-disp('Autovalores de A:');
-av=eig(A);
-disp(av);
-
-%Parametros de sim
+%Parametros de simulacion
 t_e=10e-6;
-tf=5;
+tf=.2;
 t=0: t_e: tf;
 V0=12;
 
-%Condiciones iniciales
+%Inicializacion del vector de estados
+i_a(1) =0;
+theta(1) =0;
+wm(1) =0;
 x=[0;0;0];
 
-i_a=zeros(1,length(t));
-wm=zeros(1,length(t));
-u=V0*ones(1,length(t));
-T=zeros(1,length(t));
-%Ciclo de simulacion del sistema
+u=V0*ones(1,length(t));%Vector de entrada
+T=zeros(1,length(t));%Vector de torque
+
+%Ciclo de simulacion del sistema solo para ia y calculo de Torque maximo
 for k=1:length(t)
 
-    xp=A*x+B*(V0+T(k));
-
-    i_a(k)=x(1);
-    wm(k)=x(3);
-    T(k)=Ki*x(1);
+    xp=A*x+B*[u(k) T(k)]';
+    i_a(k)=x(1);%Simula ia
     x=x+xp*t_e;
-
+    
 end
- i_max=max(i_a);
- T_max=Ki*i_max;
+%Calculo del torque maximo
+i_max=max(i_a);
+T_max=Ki*i_max;
 
-%graficos
+x=[i_a(1);theta(1);wm(1)];%Reiniciamos el vector de estados para la simulacion final
 
-subplot(2, 1, 1);
-plot(t, i_a, 'g', 'LineWidth', 1);
+%Simulacion de toda la dinamica para obtener los resultados finales
+for k=1:length(t)
+%Se aplica el torque maximo entre 0.04 y 0.07 segundos para observar la
+%correcta dinamica del motor
+    if (t(k)>=0.04 && t(k)<=0.07)
+      T(k)=T_max;
+     else
+      T(k)=0;
+    end
+
+    xp=A*x+B*[u(k) T(k)]';%Ecuacion de estado evolucionando con k
+    i_a(k)=x(1);%Evolucion de los valores de las variables de estado
+    wm(k)=x(3);
+    T(k)=Ki*x(1);%Evolucion del torque aplicado al motor
+    x=x+xp*t_e;
+    theta(k)=C*x;%Salida, angulo
+end
+
+%Graficas de las curvas del motor obtenidas con la simulacion
+subplot(4, 1, 1);
+plot(t, i_a, 'g', 'LineWidth', 2);
 grid on;
-xlabel('Tiempo (s)');
-ylabel('i_{L} (A)');
+xlabel('Tiempo [s]');
+ylabel('{i_L} [A]');
 title('Corriente de Armadura');
 
-subplot(2, 1, 2);
-plot(t, wm, 'r', 'LineWidth', 1);
+subplot(4, 1, 2);
+plot(t, wm, 'b', 'LineWidth', 2);
 grid on;
-xlabel('Tiempo (s)');
-ylabel('v_{C} (V)');
+xlabel('Tiempo [s]');
+ylabel('{\omega_m} [{rad/s}]');
 title('Velocidad angular');
+
+subplot(4, 1, 3);
+plot(t, theta, 'k', 'LineWidth', 2);
+grid on;
+xlabel('Tiempo [s]');
+ylabel('{\theta_m} [rad]');
+title('Angulo del motor');
+
+subplot(4, 1, 4);
+plot(t, T, 'r', 'LineWidth', 2);
+grid on;
+xlabel('Tiempo [s]');
+ylabel('{T_L} [Nm]');
+title('Torque');
