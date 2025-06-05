@@ -111,7 +111,7 @@ amp_esc=12; %Amplitud del escalon 12V
 % al tiempo de Chen elegido
 [~, indice] =min(abs(t+ret-tiempos));
 v1=v_cap(indice);%Tension de capacitor para indice
-t1=tiempos(indice)-ret;%Tiempo para imndice 
+t1=tiempos(indice)-ret;%Tiempo para indice 
 
 [~, indice] =min(abs(2*t+ret-tiempos));
 v2=v_cap(indice);
