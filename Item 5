@@ -1,0 +1,230 @@
+%% Calculo de parametros motor DC (Inciso 5, Caso de estudio 2|TP1)
+clc; close; clear;
+%Se cargan los datos desde el archivo xls y se almacenan en vectores
+%correspondientes
+tabla=xlsread("Curvas_Medidas_Motor_2024_v.xls");
+tiempos=tabla(:,1);
+wm=tabla(:,2);
+ia=tabla(:,3);
+Ve=tabla(:,4);
+TL=tabla(:,5);
+
+%Desde la linea 12 hasta las 20 solo sirve para verificar los datos
+%cargados
+% plot(tiempos,wm);
+% subplot(4,1,1);
+% plot(tiempos,wm);
+% subplot(4,1,2);
+% plot(tiempos,ia);
+% subplot(4,1,3);
+% plot(tiempos,Ve);
+% subplot(4,1,4);
+% plot(tiempos,TL);
+
+%% FT identificada w/Ve
+
+%Parametros para obtener los puntos sobre la curva de velocidad angular
+ret=0.03505;%Retardo de la dinamica en la velocidad angular del motor
+t=0.03520-ret; %tiempo x-dist. de chen
+
+%Se busca en el vector de tiempos el indice que corresponde
+% al tiempo de Chen elegido
+[~, indice] =min(abs(t+ret-tiempos));
+wm1=wm(indice);%Velocidad angular para indice
+t1=tiempos(indice)-ret;%Tiempo correspondiente para indice
+
+[~, indice] =min(abs(2*t+ret-tiempos));
+wm2=wm(indice);
+t2=tiempos(indice)-ret;
+
+[~, indice] =min(abs(3*t+ret-tiempos));
+wm3=wm(indice);
+t3=tiempos(indice)-ret; 
+
+
+
+%Ganancia en ss
+%k=y(infinito)/amp_esc
+amp_esc=max(Ve);
+wm_ss=198.249;
+k=wm_ss/amp_esc;
+
+%Calculos auxiliares (ecuaciones del metodo de Chen)
+k1= (1/amp_esc)*wm1/k-1;
+k2= (1/amp_esc)*wm2/k-1;
+k3= (1/amp_esc)*wm3/k-1;
+b= 4*k1^3*k3-3*k1^2*k2^2-4*k2^3+k3^2+6*k1*k2*k3;
+alfa1= (k1*k2+k3-sqrt(b))/(2*(k1^2+k2));
+alfa2= (k1*k2+k3+sqrt(b))/(2*(k1^2+k2));
+beta= (2*k1^3+3*k1*k2+k3-sqrt(b))/(sqrt(b));
+
+%Obtencion de T1,T2 y T3
+T1= (-t/log(alfa1));
+T2= (-t/log(alfa2));
+T1= real(T1);T2=real(T2);
+T3= real(beta*(T1-T2)+T1);
+
+%Funcion de transferencia identificada
+den=conv([T1 1] ,[T2 1]);
+sys_w= k*tf(1, den);
+[y1,t1_]=lsim(sys_w, Ve, tiempos, [0,0]);
+disp('La funcion de transferencia de Chen es:');
+sys_w
+
+%De linea 74 a 76 solo se plotea para verificar el resultado
+% hold on
+% plot(t1,y1,'r--')
+% legend('Entrada', 'Aproximacion por metodo de Chen {Ω_m/V_e}');
+
+%% FT identificada TL/V
+
+ %Tiempos de Chen para TL
+ret_tl=0.18502;%Retardo en la dinamica del torque
+t_TL=0.18503-ret_tl;%tiempo x-dist. de chen
+
+[~, indice] =min(abs(t_TL+ret_tl-tiempos));
+tl1=wm(indice);
+t1_tl=tiempos(indice)-ret_tl; %t1
+
+[~, indice] =min(abs(2*t_TL+ret_tl-tiempos));
+tl2=wm(indice);
+t2_tl=tiempos(indice)-ret_tl; %t2
+
+[~, indice] =min(abs(3*t_TL+ret_tl-tiempos));
+tl3=wm(indice);
+t3_tl=tiempos(indice)-ret_tl; %t3
+
+%Calculo del promedio del torque
+prom=TL(18517:33502);
+TL_P= mean(prom);
+
+%Ganancia en ss
+w_TL = 164.0;
+k_TL = (wm_ss-w_TL)/TL_P;
+
+%Calculos auxiliares (ecuaciones del metodo de Chen)
+TL1_ch=-(tl1-wm_ss);%Se restan los puntos obtenidos para poder aproximar 
+TL2_ch=-(tl2-wm_ss);%correctamente la dinamica de la perturbacion en
+TL3_ch=-(tl3-wm_ss);%la velocidad angular del motor
+
+k1_TL = (1/TL_P)*TL1_ch/k_TL-1;
+k2_TL = (1/TL_P)*TL2_ch/k_TL-1;
+k3_TL = (1/TL_P)*TL3_ch/k_TL-1;
+
+b_tlA =4*(k1_TL^3)*k3_TL-3*(k1_TL^2)*(k2_TL^2)-4*(k2_TL^3)+k3_TL^2+6*k1_TL*k2_TL*k3_TL;
+
+alfa1_tl=(k1_TL*k2_TL+k3_TL-sqrt(b_tlA))/(2*(k1_TL^2+k2_TL));
+alfa2_tl=(k1_TL*k2_TL+k3_TL+sqrt(b_tlA))/(2*(k1_TL^2+k2_TL));
+
+
+b_tlB=(2*k1_TL^3+3*k1_TL*k2_TL+k3_TL-sqrt(b_tlA))/(sqrt(b_tlA));
+
+T1_TL= -t_TL/log(alfa1_tl);
+T2_TL= -t_TL/log(alfa2_tl);
+T1_TL= real(T1_TL);
+T2_TL= real(T2_TL);
+T3_TL= real(beta*(T1-T2)+T1);
+% Funcion de transferencia identificada
+sys_T = k_TL*tf([T3_TL 1], conv([T1 1], [T2 1]));
+[y2, t2_TL] = lsim(sys_T, TL, tiempos);
+sys_T
+y_f=y1 - y2;%Diferencia entre velocidad angular sin perturbacion
+%y la perturbacion para poder modelar la dinamica entre ambas (w con T aplicado)
+
+% Graficos de comparacion desde 135 a 144
+
+plot(tiempos, wm, 'b');
+hold on;
+plot(t1_, y_f, 'k--');
+plot([t + ret, t2 + ret, t3 + ret], [wm1, wm2, wm3], 'xr');
+plot([t1_tl + ret_tl, t2_tl + ret_tl, t3_tl + ret_tl], [tl1, tl2, tl3], '*g');
+legend('Curva real', 'Identificada con Chen', 'Puntos de \omega_r', 'Puntos de {T_L}');
+xlabel('Tiempo [s]');
+ylabel('\omega_r [rad/s]');
+title('Comparacion de la curva identificada con la real');
+grid on;
+
+%% Obtencion de la FT de Ia/V
+
+ret_ia=0.03502;%Retardo dinamica de corriente de armadura
+t_ia=0.03507-ret_ia;% t de ymax
+
+[~, indice] =min(abs(t_ia+ret_ia-tiempos));
+ia1=ia(indice)/amp_esc;% Valor maximo de la corriente dividido por escalon.
+t1_ia=tiempos(indice);%Instante en el que sucede imax, los demas tiempos se
+                      %dejan para probar puntos
+
+[~, indice] =min(abs(2*t_ia+ret_ia-tiempos));
+ia2=ia(indice)/amp_esc;
+t2_ia=tiempos(indice);
+
+[~, indice] =min(abs(3*t_ia+ret_ia-tiempos));
+ia3=ia(indice)/amp_esc;
+t3_ia=tiempos(indice);
+
+%Para verificacion de puntos
+
+% plot(tiempos,ia)
+% hold on
+% plot(t1_ia,ia1*12,'o')
+% plot(t2_ia,ia2*12,'o')
+% plot(t3_ia,ia3*12,'o')
+
+%Calculos auxiliares usando el metodo desde ymax
+alfa1= (ia2-sqrt(-3*ia2^2+4*ia1*ia3))/(2*ia1);
+alfa2=ia2/ia1-alfa1;
+T1i=-(t1_ia-ret_ia)/log(alfa1);
+T2i=-(t1_ia-ret_ia)/log(alfa2);
+
+%Para check de alfa los tres betas de abajo deben ser iguales.
+
+% beta1=ia1/(alfa1-alfa2);
+% beta2=ia2/(alfa1^2-alfa2^2);
+% beta3=ia3/(alfa1^3-alfa2^3);
+
+k_ia=ia1*(T1i-T2i)/(alfa1-alfa2);
+
+sys_ia= k_ia*tf([1 0],conv([T1i 1],[T2i 1]));
+sys_ia
+[y3, t_ias] = lsim(sys_ia, Ve, tiempos);
+
+%Graficas para comparacion entre curva medida e identificada
+plot(t_ias,y3, 'k');
+hold on
+plot(tiempos,ia,'r--');
+plot([t1_ia, t2_ia, t3_ia], [12*ia1, 12*ia2, 12*ia3], 'ob');
+legend('Curva real', 'Identificada con Chen', 'Puntos de {i_A}');
+xlabel('Tiempo [s]');
+ylabel('{i_a} [A]');
+title('Comparacion de la curva identificada con la real');
+grid on;
+%% Calculos de los parametros del motor
+
+%VALORES DE REFERENCIA Laa=500e-6;J=2.5e-9;Ra=20;B=0;Ki=10e-3;Km=60.53e-3
+%De aca en adelante se obtienen los parametros del motor accediendo a los
+%coeficientes de las funciones de transferencia identificadas
+
+%De la FT de la corriente
+coef=sys_ia.numerator{1};
+G_ia=coef(1,2);
+coef=sys_ia.denominator{1};
+La=coef(1,1)/G_ia; %Se obtiene La
+Ra=coef(1,2)/G_ia; %Se obtiene Ra
+
+%De la FT del torque
+coef=sys_T.numerator{1};
+G_TL=coef(1,3);
+coef=sys_T.Denominator{1};
+Jm=coef(1,2)/G_TL;%Se obtiene Jm
+
+%De la FT de la velocidad angular
+coef=sys_w.Numerator{1};
+G_w=coef(1,3);
+coef=sys_w.Denominator{1};
+aux=coef(1,2);
+Km=1/G_w;%Se obtiene Km
+Ki=G_w*Ra/G_TL;%Se obtiene Ki
+
+%Se muestran los resultados obtenidos por Command Window
+fprintf('Los valores obtenidos de los parametros del motor son:\n');
+fprintf('La=%e Ra=%e Jm=%e Km=%e Ki=%e B=0\n', La, Ra,Jm,Km,Ki);
